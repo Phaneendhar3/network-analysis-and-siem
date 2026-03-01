@@ -82,3 +82,41 @@ if __name__=="__main__":
     devices=discover_devices()
     for d in devices:
         print(d)
+
+def normalize_os(os_guess:str)->str:
+    os_guess=os_guess.lower()
+    if "android" in os_guess:
+        return "Android"
+    if "windows" in os_guess:
+        return "Microsoft Windows"
+    if "openwrt" in os_guess:
+        return "OpenWrt (Embedded Linux)"
+    if "linux" in os_guess:
+        return "Linux / Embedded Linux"
+    if "router" in os_guess or "camera" in os_guess or "aruba" in os_guess:
+        return "Network / Embedded Device"
+    return "Unknown"
+
+def detect_os(ip:str)->str:
+    result=subprocess.run(
+        ["nmap","-O","--osscan-guess",ip],
+        capture_output=True,
+        text=True
+    )
+    raw_os=""
+    for line in result.stdout.splitlines():
+        if line.startswith("OS details:"):
+            # return line.replace("OS details:","").strip()
+            raw_os=line.replace("OS details:","").strip()
+            break
+    if not raw_os:
+        for line in result.stdout.splitlines():
+            if line.startswith("Aggressive OS guesses:"):
+                raw_os=line.replace("Agressive OS guesses:","").strip()
+                break
+    # for line in result.stdout.splitlines():
+    #     if line.startswith("Aggressive OS guesses:"):
+    #         return line.replace("Aggressive OS guesses:","").strip()+"(guessed)"
+    if not raw_os:
+        return "Unknown"
+    return normalize_os(raw_os)

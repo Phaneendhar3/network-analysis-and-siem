@@ -8,14 +8,46 @@
         <th>MAC Address</th>
         <th>Vendor</th>
         <th>Status</th>
+        <th>OS</th>
+        <th>Action</th>
     </tr>
     {% for d in devices %}
     <tr>
-        <td>{{d.ip}}</td>
+        <td>
+            {{ d.ip }}
+            {% if d.ip == local_ip %}<span style="font-weight:normal;color:#555;">(My Device)</span>{% endif %}
+        </td>
         <td>{{d.mac}}</td>
         <td>{{d.vendor}}</td>
         <td>{{d.status}}</td>
+        <td class="os-cell" data-ip="{{d.ip}}">-</td>
+        <td><button class="detect-os-btn" data-ip="{{d.ip}}">Detect OS</button></td>
     </tr>
     {% endfor %}
 </table>
+<script>
+    document.querySelectorAll('.detect-os-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const ip = this.dataset.ip;
+            const osCell = document.querySelector(`.os-cell[data-ip="${ip}"]`);
+            const btn = this;
+            // replace cell content with a small spinner while fetching
+            osCell.innerHTML = '<div class="spinner spinner-small"></div>';
+            btn.disabled = true;
+            btn.textContent = 'Detecting...';
+            fetch(`/api/detect-os/${ip}`)
+                .then(response => response.json())
+                .then(data => {
+                    osCell.textContent = data.os;
+                    btn.textContent = 'Done';
+                    btn.style.opacity = '0.6';
+                })
+                .catch(error => {
+                    osCell.textContent = 'Error';
+                    btn.textContent = 'Retry';
+                    btn.disabled = false;
+                });
+        });
+    });
+</script>
 {% endblock %}
