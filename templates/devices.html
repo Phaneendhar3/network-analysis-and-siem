@@ -15,7 +15,7 @@
     <tr>
         <td>
             {{ d.ip }}
-            {% if d.ip == local_ip %}<span style="font-weight:normal;color:#555;">(My Device)</span>{% endif %}
+            {% if d.ip == local_ip %}<span style="font-weight:normal;color:#555;">(This Device)</span>{% endif %}
         </td>
         <td>{{d.mac}}</td>
         <td>{{d.vendor}}</td>
@@ -30,22 +30,40 @@
         btn.addEventListener('click', function() {
             const ip = this.dataset.ip;
             const osCell = document.querySelector(`.os-cell[data-ip="${ip}"]`);
-            const btn = this;
+            const clickedBtn = this;
+            // disable every button (prevents multiple rows being clicked)
+            document.querySelectorAll('.detect-os-btn').forEach(b => {
+                b.disabled = true;
+            });
             // replace cell content with a small spinner while fetching
             osCell.innerHTML = '<div class="spinner spinner-small"></div>';
-            btn.disabled = true;
-            btn.textContent = 'Detecting...';
+            clickedBtn.textContent = 'Detecting...';
+
             fetch(`/api/detect-os/${ip}`)
                 .then(response => response.json())
                 .then(data => {
                     osCell.textContent = data.os;
-                    btn.textContent = 'Done';
-                    btn.style.opacity = '0.6';
+                    clickedBtn.textContent = 'Done';
+                    clickedBtn.style.opacity = '0.6';
                 })
                 .catch(error => {
                     osCell.textContent = 'Error';
-                    btn.textContent = 'Retry';
-                    btn.disabled = false;
+                    clickedBtn.textContent = 'Retry';
+                    // re-enable buttons so user can try again
+                    document.querySelectorAll('.detect-os-btn').forEach(b => {
+                        // only enable those that aren't in 'Done' state
+                        if (b !== clickedBtn || clickedBtn.textContent === 'Retry') {
+                            b.disabled = false;
+                        }
+                    });
+                })
+                .finally(() => {
+                    // after request completes, re-enable other buttons (clicked stays disabled on success)
+                    document.querySelectorAll('.detect-os-btn').forEach(b => {
+                        if (b !== clickedBtn) {
+                            b.disabled = false;
+                        }
+                    });
                 });
         });
     });
