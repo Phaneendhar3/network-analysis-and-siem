@@ -97,6 +97,84 @@ def normalize_os(os_guess:str)->str:
         return "Network / Embedded Device"
     return "Unknown"
 
+def get_os_risk(os_name:str)->dict:
+    os_name=os_name.lower()
+    if 'windows' in os_name:
+        return {"risk_level":"High","risk_score":8}
+    if 'android' in os_name:
+        return {'risk_level':"Medium",'risk_score':6}
+    if 'linux' in os_name:
+        return {'risk_level':'Medium','risk_score':5}
+    if 'embedded' in os_name or 'network' in os_name:
+        return {'risk_level':'High','risk_score':9}
+    return {'risk_level':"Low",'risk_score':2}
+
+def scan_open_ports(ip:str)->list:
+    result=subprocess.run(
+        ["nmap","-Pn","--min-rate","1000",ip],
+        capture_outpu=True
+        text=True
+    )
+    open_ports=[]
+    for line in result.stdout.splitlines():
+        line=line.strip()
+        if "/tcp" in line and "open" in line:
+            port=int(line.split("/")[0])
+            open_ports.append(port)
+    return open_ports
+
+def get_port_risk(open_ports:list)->dict:
+    risk_score=0
+    reasons=[]
+    risky_ports={
+        21:("FTP",2),
+        22:("SSH",1),
+        23:("Telnet",4),
+        80:("HTTP",1),
+        443:("HTTPS",0),
+        445:("SMB",4),
+        3389:("RDP",4),
+        3306:("MySQL",3),
+        5900:("VNS",3)
+    }
+    for port in open_ports:
+        if port in risky_ports:
+            service,score=risky_ports[port]
+            risk_score+=score
+            reasons.append(f"{service} port {port} open")
+    if risk_score>=7:
+        level="High"
+    elif risk_score>=3:
+        level="Medium"
+    else:
+        level="Low"
+    return {
+        "port_risk_score":risk_score,
+        "port_risk_level":level,
+        "port_reasons":reasons
+    }
+
+def analyze_device_risk(ip:str,os_name:str)->dict:
+    os_risk=get_os_risk(os_name)
+    open_ports=scan_open_ports(ip)
+    port_risk=get_port_risk(open_ports)
+    final_score=os_risk["risk_score"]+port_risk["port_risk_score"]
+    if final_score>=12:
+        final_level='Critical'
+    elif final_score>=8:
+        final_level='High'
+    elif final_score>=4:
+        final_level='Medium'
+    else:
+        final_level='Low'
+    return {
+        'open_ports':open_ports,
+        'os_risk':os_risk,
+        'port_risk':port_risk,
+        'final_risk_score':final_score,
+        'final_risk_level':final_level
+    }
+
 def detect_os(ip:str)->str:
     result=subprocess.run(
         ["nmap","-O","--osscan-guess",ip],
